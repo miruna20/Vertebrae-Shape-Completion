@@ -1,0 +1,1 @@
+example/patient13_ct2_seg.nii.gz

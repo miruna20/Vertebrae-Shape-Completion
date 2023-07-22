@@ -95,6 +95,9 @@ def preprocess_partial_shape(path_segmented_spine_ct):
 
 
 if __name__ == "__main__":
+    # Example run: python3 preprocess_complete_shape.py --spine_list example/spine_list.txt
+    # generates example obj files for each vertebrae individually
+
     arg_parser = argparse.ArgumentParser(description="Preprocess 3D CT segmentations")
     arg_parser.add_argument(
         "--spine_list",
