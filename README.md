@@ -33,7 +33,7 @@ Given: 3D segmentation of the spine in a CT volume with individual vertebrae lab
 
     2.1) Trafo vert to mesh 
 
-    2.2) Scale down to 0.01
+    2.2) Scale down by 0.01
 
     2.3) Center based on the centroid of the vertebra 
 
@@ -43,6 +43,6 @@ Given: 3D segmentation of the spine in a CT volume with individual vertebrae lab
 
 1) For each vertebra: 
 
-    1.1) Apply FPS o partial pcd to obtain a point cloud with 4096k
+    1.1) Apply FPS on partial pcd to obtain a point cloud with 4096 points
 
-    1.2) Apply PDS on complete mesh to obtain a point cloud with 4096 
+    1.2) Apply PDS on complete mesh to obtain a point cloud with 4096 points  
