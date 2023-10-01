@@ -1,7 +1,5 @@
 import argparse
 import os.path
-import SimpleITK as sitk
-from skimage import measure
 import open3d as o3d
 import numpy as np
 import re
@@ -35,52 +33,66 @@ def align_real_to_synthetic(real_pcd,synthetic_pcd):
     reg_result = o3d.pipelines.registration.registration_icp(real_pcd, synthetic_pcd, 0.1, np.identity(4),
                                                    o3d.pipelines.registration.TransformationEstimationPointToPoint(),
                                                              criteria)
+    o3d.io.write_point_cloud("/home/miruna20/Documents/PhD/PatientDataPreprocessing/Data/preProc_testing/real_pcd.pcd", real_pcd)
+
     real_pcd.transform(reg_result.transformation)
 
-    return real_pcd,synthetic_pcd
+    return real_pcd,synthetic_pcd,translation,reg_result.transformation
 
-def preprocess_partial_shape(vert_segm_path, synth_template_path):
+def preprocess_partial_shape(vert_pcd_path, synth_template_path):
     """
-    Apply preprocessing steps on vertebra segm from US
-    :param vert_segm_path: path to the vertebrae segmentation (*.mha)
+    Apply preprocessing steps on vertebra segm from US which is already in pcd file
+    :param vert_segm_path: path to the vertebrae partial pcd(*.pcd)
     :param synth_template_path: path to the synthetic point cloud used as alignment template
     """
+    file_name = os.path.basename(vert_pcd_path)[:-4]
 
-    # load .mha
-    reader = sitk.ImageFileReader()
-    reader.SetFileName(vert_segm_path)  # Give it the nii.gz file as a string
-    reader.LoadPrivateTagsOn()  # Make sure it can get all the info
-    reader.ReadImageInformation()
-    image = reader.Execute()
-    res = reader.GetSpacing()
-    array = sitk.GetArrayFromImage(image)
-    array = np.transpose(array, (2, 1, 0))
-    res = np.transpose(res)
+    pcd = o3d.io.read_point_cloud(vert_pcd_path)
 
-    # transform volume to mesh with marching cubes
-    verts, faces, normals, values = measure.marching_cubes(array)
-    verts = verts * res
-
-    # transform mesh to point cloud
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(verts)
-    pcd.normals = o3d.utility.Vector3dVector(normals)
-
-    pcd.translate(-pcd.get_center())
+    center = pcd.get_center()
+    pcd.translate(-center)
 
     # scale down pcd
-    pcd.scale(0.01,center=(0,0,0))
+    scale = 0.01
+    pcd.scale(scale,center=(0,0,0))
 
     # register to synthetic pipeline
     synthetic_pcd = o3d.io.read_point_cloud(synth_template_path)
-    aligned_pcd, synthetic_pcd = align_real_to_synthetic(pcd,synthetic_pcd)
+    # This is the scaled and centered
+    o3d.io.write_point_cloud(os.path.join(os.path.dirname(vert_pcd_path), file_name + "_before_applying_ICP.pcd"), pcd)
+
+    aligned_pcd, synthetic_pcd,transl,ICP_trafo = align_real_to_synthetic(pcd,synthetic_pcd)
 
     # save result in the same folder
-    file_name = os.path.basename(vert_segm_path)[:-7]
-    save_to_path = os.path.join(os.path.dirname(vert_segm_path), file_name + "_transformed.pcd")
+    save_to_path = os.path.join(os.path.dirname(vert_pcd_path), file_name + "_transformed.pcd")
     #o3d.visualization.draw_geometries([aligned_pcd])
     o3d.io.write_point_cloud(save_to_path, aligned_pcd)
 
+    # find the trafo matrix
+    # matrix = [(ICP_trafo)⁻1] * matrix that scales by 100 and moves point to x,y,z
+    inverse_trafo = np.linalg.inv(ICP_trafo)
+
+    transl_from_synth = np.array([[1, 0, 0, -transl[0]],
+                                  [0, 1, 0, -transl[1]],
+                                  [0, 0, 1, -transl[2]],
+                                  [0, 0, 0, 1]])
+    scale_up =          np.array([[100, 0, 0, 0],
+                                  [0, 100, 0, 0],
+                                  [0, 0, 100 ,0],
+                                  [0, 0, 0, 1]])
+    trans_to_initial_pose =     np.array([[1, 0, 0, center[0]-aligned_pcd.get_center()[0]],
+                                  [0, 1, 0, center[1]-aligned_pcd.get_center()[1]],
+                                  [0, 0, 1 ,center[2]-aligned_pcd.get_center()[2]],
+                                  [0, 0, 0, 1]])
+    # we want to first apply the inverse trafo and then the trafo scales and reverse (so we need to multiply in the reverse order)
+    combined_trafo = trans_to_initial_pose @ scale_up @ transl_from_synth @ inverse_trafo
+    aligned_pcd.transform(combined_trafo)
+
+    o3d.io.write_point_cloud(os.path.join(os.path.dirname(vert_pcd_path), file_name + "_transformedback.pcd"), aligned_pcd)
+
+    # save the transformation matrix from centered to orig
+    trafo_txt_file = os.path.join(os.path.dirname(vert_pcd_path),file_name + "_trafo_to_orig.txt")
+    np.savetxt(trafo_txt_file,combined_trafo,fmt="%d")
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser(description="Preprocess 3D US segmentation")
@@ -100,8 +112,8 @@ if __name__ == "__main__":
 
             US_vert_segm_path = US_vert_segm_path.replace("\n","")
             # verify the path has a .nii.gz ending
-            if not US_vert_segm_path.endswith('.nii.gz'):
-                raise Exception("Path does not end in .nii.gz: " + US_vert_segm_path)
+            if not US_vert_segm_path.endswith('.pcd'):
+                raise Exception("Path does not end in .pcd: " + US_vert_segm_path)
 
             # verify that the file exists
             if not os.path.isfile(US_vert_segm_path):
