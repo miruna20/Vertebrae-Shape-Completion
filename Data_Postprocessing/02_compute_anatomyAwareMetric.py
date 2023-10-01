@@ -2,6 +2,8 @@ import open3d as o3d
 import numpy as np
 import os
 import math
+import argparse
+import csv
 
 """
 - Write a script that does the following
@@ -71,13 +73,53 @@ def compute_anatomyAwareCD(GT_pcd_path, completion_pcd_path, GT_sphere_path, com
     return chamfer_distance
 
 if __name__ == "__main__":
-    root_path = "/home/miruna20/Documents/PhD/PatientDataPreprocessing/Data"
 
-    GT_pcd_path = os.path.join(root_path,"patient1_verLev23_GT.pcd")
-    completion_pcd_path = os.path.join(root_path,"patient1_verLev23_completion.pcd")
+    arg_parser = argparse.ArgumentParser(description="Compute anatomy aware metric")
 
-    GT_sphere_path = os.path.join(root_path,"sphere_patient1_verLev23_GT.txt")
-    completion_sphere_path = os.path.join(root_path,"sphere_patient1_verLev23_completion.txt")
+    arg_parser.add_argument(
+        "--list_vertebrae_spheres",
+        required=True,
+        dest="vert_list",
+        help="Txt file with a list of names of the GT and completion pcds and sphere coordinates files"
+    )
 
-    cd = compute_anatomyAwareCD(GT_pcd_path, completion_pcd_path,GT_sphere_path,completion_sphere_path)
-    print("Chamfer distane is: " + str( cd))
+
+    args = arg_parser.parse_args()
+    vert_list = args.vert_list
+
+    paths = []
+    with open(vert_list, 'r') as file:
+        for pcd_path in file:
+            paths.append(pcd_path.replace("\n", ""))
+
+    # prepare table where to write the results from the anatomy aware metric
+    header = ['Name','Anatomy-aware CD']
+    csv_file = os.path.join(os.path.dirname(vert_list),"results_anatomy_aware.csv")
+    with open(csv_file, mode='w', newline='') as file:
+        writer = csv.writer(file)
+
+        # for each pair of GT and completion
+        for index in range(0, len(paths), 4):
+            GT_pcd_path = paths[index]
+            GT_sphere_path = paths[index+1]
+            completion_pcd_path = paths[index+2]
+            completion_sphere_path = paths[index+3]
+
+            if not GT_pcd_path.endswith('.pcd'):
+                raise Exception("Path does not end in .pcd: " + GT_pcd_path)
+
+            if not completion_pcd_path.endswith('.pcd'):
+                raise Exception("Path does not end in .pcd: " + completion_pcd_path)
+
+            if not GT_sphere_path.endswith('.txt'):
+                raise Exception("Path does not end in .txt: " + GT_sphere_path)
+
+            if not completion_sphere_path.endswith('.txt'):
+                raise Exception("Path does not end in .txt: " + completion_sphere_path)
+
+            cd = compute_anatomyAwareCD(GT_pcd_path, completion_pcd_path,GT_sphere_path,completion_sphere_path)
+            print("Chamfer distance is: " + str(cd))
+
+            writer.writerow([os.path.basename(GT_pcd_path)[:-4],str(cd)])
+
+
