@@ -5,12 +5,18 @@ import os
 import argparse
 
 def get_filtered_pcd_from_numpy(np_array):
+    """
+    Create o3d pcd and then filter it
+    """
     # create empty point cloud
     pcd = o3d.geometry.PointCloud()
+
     # add points to the point cloud
     pcd.points = o3d.utility.Vector3dVector(np_array)
-    filtered_np_array, _ = pcd.remove_radius_outlier(4, 0.03)
-    return filtered_np_array
+
+    # filter pcd
+    #filtered_np_array, _ = pcd.remove_radius_outlier(5, 0.05)
+    return pcd
 
 if __name__ == "__main__":
 
@@ -51,6 +57,8 @@ if __name__ == "__main__":
     )
     args = arg_parser.parse_args()
 
+    # this covers the case in which we have a lot of vertebrae in the results dataset and we only want to transform the
+    # first 100 to point clouds
     nr_pcds = 100
 
     # read the h5 files of the datasets
@@ -63,18 +71,14 @@ if __name__ == "__main__":
     results = np.array(results_dataset["results"][()])
     gts = np.array(results_dataset["gt"][()])
 
-    if(len(names) == 0):
-        names = []
-        for idx in range(nr_pcds):
-            names.append(str(idx))
-
     os.makedirs(args.root_path_pcds, exist_ok=True)
 
-    if(results.shape[0]<5):
+    # however if we have a patient / phantom dataset with less than 5, then we can make the nr_pcds equal to the total
+    # number of point clouds in the result file
+    if(results.shape[0]<=5):
         nr_pcds = results.shape[0]
 
     for i in range(0, nr_pcds):
-
         filtered_input = get_filtered_pcd_from_numpy(inputs[i])
         filtered_gt = get_filtered_pcd_from_numpy(gts[i])
         filtered_result = get_filtered_pcd_from_numpy(results[i])
@@ -85,22 +89,30 @@ if __name__ == "__main__":
             filtered_result.paint_uniform_color([0, 0, 1])
 
             o3d.visualization.draw_geometries([filtered_input,filtered_gt,filtered_result])
+            o3d.visualization.draw_geometries([filtered_input,filtered_result])
+            o3d.visualization.draw_geometries([filtered_input])
 
-        # TODO test this with a results h5 file
+        curr_name = names[i].decode("utf-8")
         # Apply reverse transformation to get the completion point cloud to be in the original coordinate system
         # first find the corresponding txt file
-        txt_file = os.path.join(args.root_path_trafos,names[i] + "_transformed.txt")
+        txt_file = os.path.join(args.root_path_trafos,curr_name + ".txt")
 
-        # read the numpy from this txt file 
+        # read the numpy from this txt file
         trafo = np.loadtxt(txt_file)
-        
-        # apply trafo to the completion point cloud 
+
+        # apply trafo to the completion point cloud
+        filtered_input.transform(trafo)
         filtered_result.transform(trafo)
 
+        # trafo_phantom_IFL
+        #trafo_IFL = np.loadtxt("/home/miruna20/Documents/PhD/phantom_IFL/segm_with_CT_available/US/input_pcds/orig_coord_system/IFL_phantom_reverse_trafo.txt")
+        #filtered_input.transform(trafo_IFL)
+        #filtered_result.transform(trafo_IFL)
+
         # save point cloud
-        o3d.io.write_point_cloud(os.path.join(args.root_path_pcds,str(names[i]) + "_" + str(inputs[i].shape[1]) + "_input.pcd"), filtered_input)
-        o3d.io.write_point_cloud(os.path.join(args.root_path_pcds,str(names[i])+ "_" + str(gts[i].shape[1]) + "_GT.pcd"), filtered_gt)
-        o3d.io.write_point_cloud(os.path.join(args.root_path_pcds,str(names[i]) + "_" + str(results[i].shape[1]) + "_reconstruction.pcd"), filtered_result)
+        o3d.io.write_point_cloud(os.path.join(args.root_path_pcds,curr_name + "_" + str(inputs[i].shape[1]) + "_input.ply"), filtered_input)
+        o3d.io.write_point_cloud(os.path.join(args.root_path_pcds,curr_name+ "_" + str(gts[i].shape[1]) + "_GT.ply"), filtered_gt)
+        o3d.io.write_point_cloud(os.path.join(args.root_path_pcds,curr_name + "_" + str(results[i].shape[1]) + "_reconstruction.ply"), filtered_result)
 
 
 

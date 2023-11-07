@@ -5,14 +5,6 @@ import math
 import argparse
 import csv
 
-"""
-- Write a script that does the following
-    -   Reads one **GT PCD** and one **completion PCD** as well as the corresponding txt files that contain the sphere coordinates
-    -   Get all points within the GT PCD that belong to the annotated GT sphere
-    -   Get all points within the completion PCD that belong to the annotated completion sphere
-    -   Compute point to point metrics between these two (start with computing the chamfer distance, later also EMD)
-    -   These metrics will be the anatomy aware ones! 😎
-"""
 
 def parse_sphere_txt_file(sphere_path):
     """
@@ -27,6 +19,9 @@ def parse_sphere_txt_file(sphere_path):
     return center_point, outside_point
 
 def get_PCD_points_within_sphere(pcd, sphere_center, sphere_outside_point):
+    """
+    Get all points in pcd that are within the sphere with coordinates sphere_center and sphere_outside_point
+    """
     print("GT points within sphere")
     radius = math.sqrt((sphere_outside_point[0] - sphere_center[0])**2 + (sphere_outside_point[1] - sphere_center[1])**2 + (sphere_outside_point[2] - sphere_outside_point[2])**2)
     points = np.asarray(pcd.points)
@@ -47,6 +42,9 @@ def get_PCD_points_within_sphere(pcd, sphere_center, sphere_outside_point):
 
 
 def compute_anatomyAwareCD(GT_pcd_path, completion_pcd_path, GT_sphere_path, completion_sphere_path):
+    """
+    Compute CD between GT and completion
+    """
     # GT_pcd and completion_pcd are open3d point clouds
     # GT_sphere and completion_sphere are txt files representing sphere coordinates and have been obtained
     # by marking the sphere on ImFusion
@@ -71,6 +69,16 @@ def compute_anatomyAwareCD(GT_pcd_path, completion_pcd_path, GT_sphere_path, com
     chamfer_distance = np.mean(np.square(dists1) + np.square(dists2))
 
     return chamfer_distance
+
+"""
+- This script does the following:
+    -   Reads one **GT PCD** and one **completion PCD** as well as the corresponding txt files that contain the sphere coordinates
+    -   Get all points within the GT PCD that belong to the annotated GT sphere
+    -   Get all points within the completion PCD that belong to the annotated completion sphere
+    -   Compute point to point metrics between these two (start with computing the chamfer distance, later also EMD)
+    -   These metrics will be the anatomy aware ones!
+"""
+
 
 if __name__ == "__main__":
 
