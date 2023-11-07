@@ -58,8 +58,9 @@ def preprocess_partial_shape(vert_pcd_path, synth_template_path):
 
     # register to synthetic pipeline
     synthetic_pcd = o3d.io.read_point_cloud(synth_template_path)
+
     # This is the scaled and centered
-    o3d.io.write_point_cloud(os.path.join(os.path.dirname(vert_pcd_path), file_name + "_before_applying_ICP.pcd"), pcd)
+    #o3d.io.write_point_cloud(os.path.join(os.path.dirname(vert_pcd_path), file_name + "_before_applying_ICP.pcd"), pcd)
 
     aligned_pcd, synthetic_pcd,transl,ICP_trafo = align_real_to_synthetic(pcd,synthetic_pcd)
 
@@ -86,12 +87,13 @@ def preprocess_partial_shape(vert_pcd_path, synth_template_path):
                                   [0, 0, 0, 1]])
     # we want to first apply the inverse trafo and then the trafo scales and reverse (so we need to multiply in the reverse order)
     combined_trafo = trans_to_initial_pose @ scale_up @ transl_from_synth @ inverse_trafo
-    aligned_pcd.transform(combined_trafo)
 
-    o3d.io.write_point_cloud(os.path.join(os.path.dirname(vert_pcd_path), file_name + "_transformedback.pcd"), aligned_pcd)
+    # Test that the inverted transformation results in the original point cloud
+    aligned_pcd.transform(combined_trafo)
+    #o3d.io.write_point_cloud(os.path.join(os.path.dirname(vert_pcd_path), file_name + "_transformedback.pcd"), aligned_pcd)
 
     # save the transformation matrix from centered to orig
-    trafo_txt_file = os.path.join(os.path.dirname(vert_pcd_path),file_name + "_trafo_to_orig.txt")
+    trafo_txt_file = os.path.join(os.path.dirname(vert_pcd_path),file_name + "_transformed.txt")
     np.savetxt(trafo_txt_file,combined_trafo,fmt="%d")
 
 if __name__ == "__main__":
@@ -109,6 +111,7 @@ if __name__ == "__main__":
     # iterate over all vertebrae segmentation paths
     with open(vert_list, 'r') as file:
         for US_vert_segm_path in file:
+            print(f"Currently preprocessing {US_vert_segm_path} ")
 
             US_vert_segm_path = US_vert_segm_path.replace("\n","")
             # verify the path has a .nii.gz ending
