@@ -78,14 +78,6 @@ def preprocess_partial_shape(path_segmented_spine_ct):
         mesh.triangles = o3d.utility.Vector3iVector(faces)
         mesh.vertex_normals = o3d.utility.Vector3dVector(normals)
 
-        # scale mesh down to 0.01
-        vert_center = mesh.get_center()
-        mesh.scale(0.01, center=vert_center)
-
-        # move to center
-        verts_vert = mesh.vertices - vert_center
-        mesh.vertices = o3d.utility.Vector3dVector(verts_vert)
-
         base_folder = os.path.dirname(path_segmented_spine_ct)
         base_name = os.path.basename(path_segmented_spine_ct)[:-7]
         vert_path = os.path.join(base_folder, base_name + "_verLev" + str(20 + index) + ".obj")
