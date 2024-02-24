@@ -138,7 +138,6 @@ def save_inverse_trafo(ICP_trafo, transl, scaling_factor, center, aligned_pcd,fo
     # we want to first apply the inverse trafo and then the trafo scales and reverse (so we need to multiply in the reverse order)
     combined_trafo_inverse = trans_to_initial_pose @ scale_up @ transl_from_synth @ inverse_trafo
     # Test that the inverted transformation results in the original point cloud
-    aligned_pcd.transform(combined_trafo_inverse)
     o3d.io.write_point_cloud(os.path.join(folder, filename_wo_ext + "_transformedback.pcd"),
                              aligned_pcd)
 
